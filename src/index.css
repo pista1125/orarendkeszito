@@ -1,0 +1,27 @@
+@import "tailwindcss";
+
+@layer utilities {
+  .pattern-diagonal-lines {
+    background-image: repeating-linear-gradient(
+      45deg,
+      rgba(0, 0, 0, 0.04),
+      rgba(0, 0, 0, 0.04) 10px,
+      transparent 10px,
+      transparent 20px
+    );
+  }
+}
+
+@media print {
+  body {
+    background-color: white !important;
+    color: black !important;
+  }
+  header, footer, nav, button {
+    display: none !important;
+  }
+  .print\:break-after-page {
+    page-break-after: always;
+    break-after: page;
+  }
+}
