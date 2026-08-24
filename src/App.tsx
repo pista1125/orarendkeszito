@@ -49,8 +49,8 @@ export function App() {
         onOpenGenerator={() => setIsGeneratorOpen(true)}
         onExportJson={handleExportJson}
         onImportJson={handleImportJson}
-        projectName={project.name}
-        schoolName={project.schoolName}
+        project={project}
+        setProject={setProject}
         conflicts={conflicts}
       />
 

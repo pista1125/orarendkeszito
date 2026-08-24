@@ -67,6 +67,7 @@ export interface TimetableSlot {
   subjectId: string;
   teacherId: string;
   roomId?: string;
+  groupName?: string; // e.g. "1. csoport", "Lányok", "Haladó"
   isLocked?: boolean; // if locked, automatic generator will not touch/move it
 }
 
@@ -106,6 +107,8 @@ export interface TimetableProject {
   name: string;
   schoolName: string;
   academicYear: string;
+  semester?: string; // e.g. "I. Félév", "II. Félév", "Egész tanév"
+  periods?: TimeSlotConfig[]; // Csengetési rend (Start & End times per period)
   teachers: Teacher[];
   classes: ClassGroup[];
   subjects: Subject[];

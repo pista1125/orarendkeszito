@@ -10,6 +10,11 @@
       transparent 20px
     );
   }
+  .writing-mode-vertical {
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    transform: rotate(180deg);
+  }
 }
 
 @media print {

@@ -9,6 +9,10 @@ import {
   Trash2,
   Edit2,
   X,
+  School,
+  Clock,
+  Sparkles,
+  RotateCcw,
 } from 'lucide-react';
 import type {
   TimetableProject,
@@ -17,8 +21,9 @@ import type {
   Subject,
   CurriculumRequirement,
   Constraint,
+  TimeSlotConfig,
 } from '../../types/timetable';
-import { DAYS_HUNGARIAN } from '../../types/timetable';
+import { DAYS_HUNGARIAN, DEFAULT_PERIODS } from '../../types/timetable';
 
 interface DataManagementProps {
   project: TimetableProject;
@@ -26,7 +31,17 @@ interface DataManagementProps {
 }
 
 export const DataManagement: React.FC<DataManagementProps> = ({ project, setProject }) => {
-  const [subTab, setSubTab] = useState<'teachers' | 'classes' | 'subjects' | 'curriculum' | 'constraints'>('teachers');
+  const [subTab, setSubTab] = useState<
+    'school' | 'bell_schedule' | 'teachers' | 'classes' | 'subjects' | 'curriculum' | 'constraints'
+  >('school');
+
+  // Bell schedule generator state in DataManagement
+  const [calcStart, setCalcStart] = useState('08:00');
+  const [calcDuration, setCalcDuration] = useState(45);
+  const [calcShortBreak, setCalcShortBreak] = useState(10);
+  const [calcLongBreak, setCalcLongBreak] = useState(15);
+  const [calcLongBreakAfter, setCalcLongBreakAfter] = useState(2);
+  const [calcPeriodCount, setCalcPeriodCount] = useState(8);
 
   const [editingTeacher, setEditingTeacher] = useState<Partial<Teacher> | null>(null);
   const [editingClass, setEditingClass] = useState<Partial<ClassGroup> | null>(null);
@@ -188,8 +203,32 @@ export const DataManagement: React.FC<DataManagementProps> = ({ project, setProj
     <div className="max-w-7xl mx-auto px-4 py-8">
       <div className="flex border-b border-slate-200 mb-8 space-x-4">
         <button
+          onClick={() => setSubTab('school')}
+          className={`flex items-center space-x-2 pb-3 font-semibold text-sm border-b-2 transition-all cursor-pointer ${
+            subTab === 'school'
+              ? 'border-indigo-600 text-indigo-600'
+              : 'border-transparent text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          <School className="w-4 h-4" />
+          <span>Intézmény & Tanév</span>
+        </button>
+
+        <button
+          onClick={() => setSubTab('bell_schedule')}
+          className={`flex items-center space-x-2 pb-3 font-semibold text-sm border-b-2 transition-all cursor-pointer ${
+            subTab === 'bell_schedule'
+              ? 'border-indigo-600 text-indigo-600'
+              : 'border-transparent text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          <Clock className="w-4 h-4" />
+          <span>Csengetési Rend ({(project.periods || DEFAULT_PERIODS).length} óra)</span>
+        </button>
+
+        <button
           onClick={() => setSubTab('teachers')}
-          className={`flex items-center space-x-2 pb-3 font-semibold text-sm border-b-2 transition-all ${
+          className={`flex items-center space-x-2 pb-3 font-semibold text-sm border-b-2 transition-all cursor-pointer ${
             subTab === 'teachers'
               ? 'border-indigo-600 text-indigo-600'
               : 'border-transparent text-slate-500 hover:text-slate-800'
@@ -201,7 +240,7 @@ export const DataManagement: React.FC<DataManagementProps> = ({ project, setProj
 
         <button
           onClick={() => setSubTab('classes')}
-          className={`flex items-center space-x-2 pb-3 font-semibold text-sm border-b-2 transition-all ${
+          className={`flex items-center space-x-2 pb-3 font-semibold text-sm border-b-2 transition-all cursor-pointer ${
             subTab === 'classes'
               ? 'border-indigo-600 text-indigo-600'
               : 'border-transparent text-slate-500 hover:text-slate-800'
@@ -213,7 +252,7 @@ export const DataManagement: React.FC<DataManagementProps> = ({ project, setProj
 
         <button
           onClick={() => setSubTab('subjects')}
-          className={`flex items-center space-x-2 pb-3 font-semibold text-sm border-b-2 transition-all ${
+          className={`flex items-center space-x-2 pb-3 font-semibold text-sm border-b-2 transition-all cursor-pointer ${
             subTab === 'subjects'
               ? 'border-indigo-600 text-indigo-600'
               : 'border-transparent text-slate-500 hover:text-slate-800'
@@ -225,7 +264,7 @@ export const DataManagement: React.FC<DataManagementProps> = ({ project, setProj
 
         <button
           onClick={() => setSubTab('curriculum')}
-          className={`flex items-center space-x-2 pb-3 font-semibold text-sm border-b-2 transition-all ${
+          className={`flex items-center space-x-2 pb-3 font-semibold text-sm border-b-2 transition-all cursor-pointer ${
             subTab === 'curriculum'
               ? 'border-indigo-600 text-indigo-600'
               : 'border-transparent text-slate-500 hover:text-slate-800'
@@ -237,7 +276,7 @@ export const DataManagement: React.FC<DataManagementProps> = ({ project, setProj
 
         <button
           onClick={() => setSubTab('constraints')}
-          className={`flex items-center space-x-2 pb-3 font-semibold text-sm border-b-2 transition-all ${
+          className={`flex items-center space-x-2 pb-3 font-semibold text-sm border-b-2 transition-all cursor-pointer ${
             subTab === 'constraints'
               ? 'border-indigo-600 text-indigo-600'
               : 'border-transparent text-slate-500 hover:text-slate-800'
@@ -247,6 +286,357 @@ export const DataManagement: React.FC<DataManagementProps> = ({ project, setProj
           <span>Kötöttségek ({project.constraints.length})</span>
         </button>
       </div>
+
+      {subTab === 'school' && (
+        <div className="bg-white rounded-3xl border border-slate-200 shadow-xl p-8 max-w-2xl mx-auto space-y-6">
+          <div>
+            <h2 className="text-2xl font-black text-slate-900 flex items-center space-x-2.5">
+              <School className="w-7 h-7 text-indigo-600" />
+              <span>Intézmény & Tanév Alapadatok</span>
+            </h2>
+            <p className="text-slate-500 text-sm mt-1">
+              Állítsd be az iskola nevét, az aktuális tanévet, az időszakot (félév/tanév) és az órarend nevét.
+            </p>
+          </div>
+
+          <div className="space-y-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                Iskola / Intézmény neve:
+              </label>
+              <input
+                type="text"
+                value={project.schoolName}
+                onChange={(e) =>
+                  setProject((prev) => ({ ...prev, schoolName: e.target.value }))
+                }
+                placeholder="pl. Kossuth Lajos Általános Iskola"
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-2xl font-bold text-sm text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Tanév:
+                </label>
+                <input
+                  type="text"
+                  value={project.academicYear}
+                  onChange={(e) =>
+                    setProject((prev) => ({ ...prev, academicYear: e.target.value }))
+                  }
+                  placeholder="pl. 2026/2027"
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-2xl font-bold text-sm text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Időszak / Félév:
+                </label>
+                <select
+                  value={project.semester || 'I. Félév'}
+                  onChange={(e) =>
+                    setProject((prev) => ({ ...prev, semester: e.target.value }))
+                  }
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-2xl font-bold text-sm text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:outline-none cursor-pointer"
+                >
+                  <option value="I. Félév">I. Félév</option>
+                  <option value="II. Félév">II. Félév</option>
+                  <option value="Egész tanév">Egész tanév</option>
+                  <option value="Tervezet">Tervezet</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                Órarend elnevezése / verzió:
+              </label>
+              <input
+                type="text"
+                value={project.name}
+                onChange={(e) =>
+                  setProject((prev) => ({ ...prev, name: e.target.value }))
+                }
+                placeholder="pl. 2026/2027 I. Félév Fő Órarend"
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-2xl font-bold text-sm text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {subTab === 'bell_schedule' && (
+        <div className="bg-white rounded-3xl border border-slate-200 shadow-xl p-6 sm:p-8 max-w-3xl mx-auto space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+            <div>
+              <h2 className="text-2xl font-black text-slate-900 flex items-center space-x-2.5">
+                <Clock className="w-7 h-7 text-indigo-600" />
+                <span>Csengetési Rend Kezelése</span>
+              </h2>
+              <p className="text-slate-500 text-sm mt-1">
+                Állítsd be az egyes tanórák kezdeti és befejezési időpontjait és a szüneteket.
+              </p>
+            </div>
+
+            <button
+              onClick={() => {
+                const current = project.periods && project.periods.length > 0 ? project.periods : DEFAULT_PERIODS;
+                const nextNum = current.length + 1;
+                let start = '15:15';
+                let end = '16:00';
+                if (current.length > 0) {
+                  const last = current[current.length - 1];
+                  const [lh, lm] = last.endTime.split(':').map(Number);
+                  const startMins = (lh || 15) * 60 + (lm || 0) + 10;
+                  const endMins = startMins + 45;
+                  const formatTime = (mins: number) => {
+                    const h = Math.floor(mins / 60) % 24;
+                    const m = mins % 60;
+                    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+                  };
+                  start = formatTime(startMins);
+                  end = formatTime(endMins);
+                }
+                setProject((prev) => ({
+                  ...prev,
+                  periods: [...(prev.periods || DEFAULT_PERIODS), { period: nextNum, startTime: start, endTime: end }],
+                }));
+              }}
+              className="flex items-center space-x-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-xs shadow-md shadow-indigo-600/30 cursor-pointer transition-colors shrink-0"
+            >
+              <Plus className="w-4 h-4" />
+              <span>+ Új óra hozzáadása</span>
+            </button>
+          </div>
+
+          {/* Quick Auto Calculator Wizard */}
+          <div className="bg-gradient-to-br from-indigo-50/80 via-blue-50/40 to-slate-50 border border-indigo-100 rounded-2xl p-5 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2 text-xs font-black text-indigo-900">
+                <Sparkles className="w-4 h-4 text-indigo-600" />
+                <span>Automatikus Csengetési Rend Kalkulátor</span>
+              </div>
+              <span className="text-[11px] text-slate-500">
+                Generálás megadott órahossz és szünetek szerint
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                  1. óra kezdete:
+                </label>
+                <input
+                  type="time"
+                  value={calcStart}
+                  onChange={(e) => setCalcStart(e.target.value)}
+                  className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-xl font-bold text-xs text-slate-900 focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                  Óra hossza:
+                </label>
+                <div className="flex items-center">
+                  <input
+                    type="number"
+                    min={20}
+                    max={90}
+                    value={calcDuration}
+                    onChange={(e) => setCalcDuration(Number(e.target.value))}
+                    className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-xl font-bold text-xs text-slate-900 focus:ring-2 focus:ring-indigo-500"
+                  />
+                  <span className="ml-1 text-slate-500 text-[10px]">perc</span>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                  Kis szünet:
+                </label>
+                <div className="flex items-center">
+                  <input
+                    type="number"
+                    min={5}
+                    max={30}
+                    value={calcShortBreak}
+                    onChange={(e) => setCalcShortBreak(Number(e.target.value))}
+                    className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-xl font-bold text-xs text-slate-900 focus:ring-2 focus:ring-indigo-500"
+                  />
+                  <span className="ml-1 text-slate-500 text-[10px]">perc</span>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                  Nagy szünet (perc):
+                </label>
+                <div className="flex items-center">
+                  <input
+                    type="number"
+                    min={5}
+                    max={45}
+                    value={calcLongBreak}
+                    onChange={(e) => setCalcLongBreak(Number(e.target.value))}
+                    className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-xl font-bold text-xs text-slate-900 focus:ring-2 focus:ring-indigo-500"
+                  />
+                  <span className="ml-1 text-slate-500 text-[10px]">perc</span>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                  Nagy szünet helye:
+                </label>
+                <select
+                  value={calcLongBreakAfter}
+                  onChange={(e) => setCalcLongBreakAfter(Number(e.target.value))}
+                  className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-xl font-bold text-xs text-slate-900 focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+                >
+                  <option value={2}>2. óra után</option>
+                  <option value={3}>3. óra után</option>
+                  <option value={4}>4. óra után</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                  Generálandó óraszám:
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  max={12}
+                  value={calcPeriodCount}
+                  onChange={(e) => setCalcPeriodCount(Number(e.target.value))}
+                  className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-xl font-bold text-xs text-slate-900 focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-1">
+              <button
+                onClick={() => {
+                  const [startH, startM] = calcStart.split(':').map(Number);
+                  let currentMinute = (startH || 8) * 60 + (startM || 0);
+                  const generated: TimeSlotConfig[] = [];
+                  const formatTime = (mins: number) => {
+                    const h = Math.floor(mins / 60) % 24;
+                    const m = mins % 60;
+                    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+                  };
+
+                  for (let i = 1; i <= calcPeriodCount; i++) {
+                    const startStr = formatTime(currentMinute);
+                    const endMinute = currentMinute + calcDuration;
+                    const endStr = formatTime(endMinute);
+                    generated.push({ period: i, startTime: startStr, endTime: endStr });
+                    const isLongBreak = i === calcLongBreakAfter;
+                    const breakMins = isLongBreak ? calcLongBreak : calcShortBreak;
+                    currentMinute = endMinute + breakMins;
+                  }
+                  setProject((prev) => ({ ...prev, periods: generated }));
+                }}
+                className="flex items-center space-x-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-xs cursor-pointer transition-colors"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Időpontok újraszámolása és alkalmazása</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Periods Table */}
+          <div className="space-y-2.5">
+            {(project.periods && project.periods.length > 0
+              ? project.periods
+              : DEFAULT_PERIODS
+            ).map((p, idx, arr) => (
+              <div
+                key={idx}
+                className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50 border border-slate-200 hover:border-indigo-300 transition-colors"
+              >
+                <div className="flex items-center space-x-3">
+                  <div className="w-8 h-8 rounded-xl bg-slate-900 text-white font-black text-xs flex items-center justify-center shadow-xs">
+                    {p.period}.
+                  </div>
+                  <span className="text-sm font-bold text-slate-800">
+                    {p.period}. tanóra
+                  </span>
+                </div>
+
+                <div className="flex items-center space-x-3">
+                  <div className="flex items-center space-x-1.5">
+                    <label className="text-xs font-semibold text-slate-500">Kezdés:</label>
+                    <input
+                      type="time"
+                      value={p.startTime}
+                      onChange={(e) => {
+                        const newPeriods = arr.map((item, i) =>
+                          i === idx ? { ...item, startTime: e.target.value } : item
+                        );
+                        setProject((prev) => ({ ...prev, periods: newPeriods }));
+                      }}
+                      className="px-2.5 py-1 bg-white border border-slate-300 rounded-xl font-bold text-xs text-slate-900 focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+
+                  <span className="text-slate-400 font-bold">-</span>
+
+                  <div className="flex items-center space-x-1.5">
+                    <label className="text-xs font-semibold text-slate-500">Vége:</label>
+                    <input
+                      type="time"
+                      value={p.endTime}
+                      onChange={(e) => {
+                        const newPeriods = arr.map((item, i) =>
+                          i === idx ? { ...item, endTime: e.target.value } : item
+                        );
+                        setProject((prev) => ({ ...prev, periods: newPeriods }));
+                      }}
+                      className="px-2.5 py-1 bg-white border border-slate-300 rounded-xl font-bold text-xs text-slate-900 focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+
+                  <button
+                    onClick={() => {
+                      if (arr.length <= 1) return;
+                      const filtered = arr
+                        .filter((_, i) => i !== idx)
+                        .map((item, i) => ({ ...item, period: i + 1 }));
+                      setProject((prev) => ({ ...prev, periods: filtered }));
+                    }}
+                    disabled={arr.length <= 1}
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-30 cursor-pointer"
+                    title="Óra törlése"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex justify-between items-center border-t border-slate-100 pt-4">
+            <button
+              onClick={() => {
+                setProject((prev) => ({ ...prev, periods: DEFAULT_PERIODS }));
+              }}
+              className="flex items-center space-x-1.5 px-3 py-2 text-slate-500 hover:text-slate-800 font-bold text-xs cursor-pointer transition-colors"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>Alapértelmezett csengetési rend visszaállítása</span>
+            </button>
+
+            <span className="text-xs text-emerald-600 font-bold">
+              ✓ Automatikusan mentve a projektbe
+            </span>
+          </div>
+        </div>
+      )}
 
       {subTab === 'teachers' && (
         <div>

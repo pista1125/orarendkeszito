@@ -88,14 +88,41 @@ export function detectConflicts(
           .map((s) => subjects.find((subj) => subj.id === s.subjectId)?.shortCode || s.subjectId)
           .join(', ');
 
+        const hasDifferentGroups = cSlots.some((s) => s.groupName);
         conflicts.push({
           id: `conflict-c-${classId}-${day}-${period}`,
           type: 'CLASS_OVERLAP',
-          severity: 'ERROR',
-          message: `Osztály ütközés: A ${cName} osztálynak egyszerre több órája van (${subjNames}) a ${day + 1}. nap ${period}. órájában.`,
+          severity: hasDifferentGroups ? 'WARNING' : 'ERROR',
+          message: hasDifferentGroups
+            ? `Csoportbontás: A(z) ${cName} osztálynak ${cSlots.length} csoportja van (${subjNames}) a ${day + 1}. nap ${period}. órájában.`
+            : `Osztály ütközés: A(z) ${cName} osztálynak egyszerre több órája van (${subjNames}) a ${day + 1}. nap ${period}. órájában.`,
           day,
           period,
           involvedSlotIds: cSlots.map((s) => s.id),
+        });
+      }
+    });
+
+    const roomSlotsMap = new Map<string, TimetableSlot[]>();
+    timeSlots.forEach((slot) => {
+      if (slot.roomId) {
+        if (!roomSlotsMap.has(slot.roomId)) {
+          roomSlotsMap.set(slot.roomId, []);
+        }
+        roomSlotsMap.get(slot.roomId)!.push(slot);
+      }
+    });
+
+    roomSlotsMap.forEach((rSlots, roomId) => {
+      if (rSlots.length > 1) {
+        conflicts.push({
+          id: `conflict-room-${roomId}-${day}-${period}`,
+          type: 'CONSTRAINT_VIOLATION',
+          severity: 'ERROR',
+          message: `Terem ütközés: Egy teremhez több óra is be van osztva a ${day + 1}. nap ${period}. órájában.`,
+          day,
+          period,
+          involvedSlotIds: rSlots.map((s) => s.id),
         });
       }
     });
