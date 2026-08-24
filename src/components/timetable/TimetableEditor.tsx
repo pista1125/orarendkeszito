@@ -210,68 +210,68 @@ export const TimetableEditor: React.FC<TimetableEditorProps> = ({
   }, [selectedTeacherId, project.slots, project.teachers]);
 
   return (
-    <div className="max-w-7xl mx-auto px-3 sm:px-6 py-6 space-y-6">
+    <div className="max-w-[1680px] mx-auto px-3 sm:px-6 py-6 space-y-6">
       {/* Top View Selector Bar */}
       <div className="bg-white p-3 sm:p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col lg:flex-row items-center justify-between gap-4">
         {/* Navigation Tabs */}
-        <div className="flex flex-wrap items-center bg-slate-100 p-1.5 rounded-2xl gap-1 w-full lg:w-auto">
+        <div className="flex flex-wrap items-center bg-slate-100 p-1.5 rounded-2xl gap-1 w-full lg:w-auto overflow-x-auto whitespace-nowrap">
           <button
             onClick={() => setViewMode('master')}
-            className={`flex items-center space-x-2 px-3.5 py-2 rounded-xl text-xs font-black transition-all ${
+            className={`flex items-center space-x-2 px-3.5 py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap shrink-0 cursor-pointer ${
               viewMode === 'master'
                 ? 'bg-white text-indigo-600 shadow-sm'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            <Grid className="w-4 h-4 text-indigo-600" />
+            <Grid className="w-4 h-4 text-indigo-600 shrink-0" />
             <span>🌟 Fő Mester Tábla</span>
           </button>
 
           <button
             onClick={() => setViewMode('class')}
-            className={`flex items-center space-x-2 px-3.5 py-2 rounded-xl text-xs font-black transition-all ${
+            className={`flex items-center space-x-2 px-3.5 py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap shrink-0 cursor-pointer ${
               viewMode === 'class'
                 ? 'bg-white text-indigo-600 shadow-sm'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            <GraduationCap className="w-4 h-4 text-cyan-600" />
+            <GraduationCap className="w-4 h-4 text-cyan-600 shrink-0" />
             <span>Osztály Nézet</span>
           </button>
 
           <button
             onClick={() => setViewMode('teacher')}
-            className={`flex items-center space-x-2 px-3.5 py-2 rounded-xl text-xs font-black transition-all ${
+            className={`flex items-center space-x-2 px-3.5 py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap shrink-0 cursor-pointer ${
               viewMode === 'teacher'
                 ? 'bg-white text-indigo-600 shadow-sm'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            <User className="w-4 h-4 text-emerald-600" />
+            <User className="w-4 h-4 text-emerald-600 shrink-0" />
             <span>Tanár Nézet</span>
           </button>
 
           <button
             onClick={() => setViewMode('room')}
-            className={`flex items-center space-x-2 px-3.5 py-2 rounded-xl text-xs font-black transition-all ${
+            className={`flex items-center space-x-2 px-3.5 py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap shrink-0 cursor-pointer ${
               viewMode === 'room'
                 ? 'bg-white text-indigo-600 shadow-sm'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            <DoorOpen className="w-4 h-4 text-amber-600" />
+            <DoorOpen className="w-4 h-4 text-amber-600 shrink-0" />
             <span>Terem Nézet</span>
           </button>
 
           <button
             onClick={() => setViewMode('teacher_matrix')}
-            className={`flex items-center space-x-2 px-3.5 py-2 rounded-xl text-xs font-black transition-all ${
+            className={`flex items-center space-x-2 px-3.5 py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap shrink-0 cursor-pointer ${
               viewMode === 'teacher_matrix'
                 ? 'bg-white text-indigo-600 shadow-sm'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            <Users className="w-4 h-4 text-pink-600" />
+            <Users className="w-4 h-4 text-pink-600 shrink-0" />
             <span>Tanári Mátrix</span>
           </button>
         </div>

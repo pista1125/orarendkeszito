@@ -65,33 +65,33 @@ export const Navbar: React.FC<NavbarProps> = ({
   };
 
   return (
-    <header className="bg-slate-900 border-b border-slate-800 text-white sticky top-0 z-40 shadow-xl">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
+    <header className="bg-slate-900 border-b border-slate-800 text-white relative shadow-xl">
+      <div className="max-w-[1680px] mx-auto px-3 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between h-16 gap-3">
           {/* Logo & School / Project Info (Clickable to edit!) */}
           <div
             onClick={handleOpenSettings}
-            className="flex items-center space-x-3 cursor-pointer group p-1.5 -ml-1.5 rounded-2xl hover:bg-slate-800/80 transition-all"
+            className="flex items-center space-x-3 cursor-pointer group p-1.5 -ml-1.5 rounded-2xl hover:bg-slate-800/80 transition-all shrink-0 max-w-[280px] sm:max-w-md"
             title="Kattints az iskola nevének, tanévének és félévének szerkesztéséhez!"
           >
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 via-blue-500 to-cyan-400 flex items-center justify-center shadow-lg shadow-indigo-500/30 group-hover:scale-105 transition-transform">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 via-blue-500 to-cyan-400 flex items-center justify-center shadow-lg shadow-indigo-500/30 group-hover:scale-105 transition-transform shrink-0">
               <School className="w-6 h-6 text-white" />
             </div>
-            <div>
+            <div className="min-w-0">
               <div className="flex items-center space-x-1.5">
-                <h1 className="font-black text-base sm:text-lg leading-tight text-white group-hover:text-indigo-300 transition-colors">
+                <h1 className="font-black text-sm sm:text-base leading-tight text-white group-hover:text-indigo-300 transition-colors truncate">
                   {project.schoolName}
                 </h1>
-                <Edit3 className="w-3.5 h-3.5 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                <Edit3 className="w-3.5 h-3.5 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
               </div>
               <div className="flex items-center text-xs text-slate-400 space-x-1.5">
-                <span className="text-slate-300 font-semibold">{project.academicYear}</span>
+                <span className="text-slate-300 font-semibold shrink-0">{project.academicYear}</span>
                 <span>•</span>
-                <span className="text-indigo-300 font-bold bg-indigo-950/80 px-1.5 py-0.2 rounded border border-indigo-800/50">
+                <span className="text-indigo-300 font-bold bg-indigo-950/80 px-1.5 py-0.2 rounded border border-indigo-800/50 shrink-0">
                   {project.semester || 'I. Félév'}
                 </span>
                 <span>•</span>
-                <span className="text-slate-400 truncate max-w-[140px] sm:max-w-[220px]">
+                <span className="text-slate-400 truncate">
                   {project.name}
                 </span>
               </div>
@@ -99,49 +99,49 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
 
           {/* Center Tabs */}
-          <nav className="hidden md:flex items-center bg-slate-800/80 p-1 rounded-xl border border-slate-700/60 shadow-inner">
+          <nav className="hidden md:flex items-center bg-slate-800/80 p-1 rounded-xl border border-slate-700/60 shadow-inner shrink-0 whitespace-nowrap gap-1">
             <button
               onClick={() => setActiveTab('timetable')}
-              className={`flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
+              className={`flex items-center space-x-2 px-3.5 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all cursor-pointer whitespace-nowrap shrink-0 ${
                 activeTab === 'timetable'
                   ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/40'
                   : 'text-slate-300 hover:text-white hover:bg-slate-700/50'
               }`}
             >
-              <Calendar className="w-4 h-4" />
+              <Calendar className="w-4 h-4 shrink-0" />
               <span>Órarend Mátrix</span>
             </button>
 
             <button
               onClick={() => setActiveTab('data')}
-              className={`flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
+              className={`flex items-center space-x-2 px-3.5 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all cursor-pointer whitespace-nowrap shrink-0 ${
                 activeTab === 'data'
                   ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/40'
                   : 'text-slate-300 hover:text-white hover:bg-slate-700/50'
               }`}
             >
-              <Database className="w-4 h-4" />
+              <Database className="w-4 h-4 shrink-0" />
               <span>Adatok & Szabályok</span>
             </button>
 
             <button
               onClick={() => setActiveTab('export')}
-              className={`flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
+              className={`flex items-center space-x-2 px-3.5 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all cursor-pointer whitespace-nowrap shrink-0 ${
                 activeTab === 'export'
                   ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/40'
                   : 'text-slate-300 hover:text-white hover:bg-slate-700/50'
               }`}
             >
-              <Printer className="w-4 h-4" />
+              <Printer className="w-4 h-4 shrink-0" />
               <span>Export & PDF</span>
             </button>
           </nav>
 
           {/* Right Action Bar */}
-          <div className="flex items-center space-x-2.5">
+          <div className="flex items-center space-x-2.5 shrink-0 whitespace-nowrap">
             {/* Conflict counter */}
             <div
-              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border ${
+              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border whitespace-nowrap shrink-0 ${
                 errorConflicts.length > 0
                   ? 'bg-red-500/10 border-red-500/30 text-red-400 animate-pulse'
                   : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
@@ -154,12 +154,12 @@ export const Navbar: React.FC<NavbarProps> = ({
             >
               {errorConflicts.length > 0 ? (
                 <>
-                  <AlertTriangle className="w-4 h-4" />
+                  <AlertTriangle className="w-4 h-4 shrink-0" />
                   <span>{errorConflicts.length} ütközés</span>
                 </>
               ) : (
                 <>
-                  <CheckCircle2 className="w-4 h-4" />
+                  <CheckCircle2 className="w-4 h-4 shrink-0" />
                   <span>Rendben</span>
                 </>
               )}
@@ -168,14 +168,14 @@ export const Navbar: React.FC<NavbarProps> = ({
             {/* Auto generate button */}
             <button
               onClick={onOpenGenerator}
-              className="flex items-center space-x-2 px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-slate-950 font-bold text-xs sm:text-sm shadow-lg shadow-amber-500/25 transition-all transform hover:-translate-y-0.5 cursor-pointer"
+              className="flex items-center space-x-2 px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-slate-950 font-bold text-xs sm:text-sm shadow-lg shadow-amber-500/25 transition-all transform hover:-translate-y-0.5 cursor-pointer whitespace-nowrap shrink-0"
             >
-              <Sparkles className="w-4 h-4" />
+              <Sparkles className="w-4 h-4 shrink-0" />
               <span className="hidden sm:inline">Auto Generálás</span>
             </button>
 
             {/* Save / Load JSON */}
-            <div className="flex items-center border-l border-slate-700 pl-2.5 space-x-1.5">
+            <div className="flex items-center border-l border-slate-700 pl-2.5 space-x-1.5 shrink-0">
               <button
                 onClick={onExportJson}
                 className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition-colors cursor-pointer"
