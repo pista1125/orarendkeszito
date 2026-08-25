@@ -230,6 +230,10 @@ export const INITIAL_MOCK_PROJECT: TimetableProject = {
     { id: 's-32', day: 1, period: 4, classId: 'c-7', subjectId: 's-10', teacherId: 't-6' }, // VII. Tesi
     { id: 's-33', day: 1, period: 5, classId: 'c-7', subjectId: 's-11', teacherId: 't-7' }, // VII. Info
 
+    // Összevont óra minta: 7.o és 8.o kedd 6. óra Boldogságóra (t-5 Takács Zsuzsa)
+    { id: 's-joint-7', day: 1, period: 6, classId: 'c-7', subjectId: 's-17', teacherId: 't-5', isJoint: true, jointSlotId: 'joint-boldog-78', jointClassIds: ['c-7', 'c-8'] },
+    { id: 's-joint-8', day: 1, period: 6, classId: 'c-8', subjectId: 's-17', teacherId: 't-5', isJoint: true, jointSlotId: 'joint-boldog-78', jointClassIds: ['c-7', 'c-8'] },
+
     // SZERDA
     { id: 's-34', day: 2, period: 1, classId: 'c-5', subjectId: 's-15', teacherId: 't-6' }, // V. Birkózás
     { id: 's-35', day: 2, period: 2, classId: 'c-5', subjectId: 's-15', teacherId: 't-6' }, // V. Birkózás

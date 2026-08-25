@@ -13,6 +13,7 @@ import {
   Clock,
   Sparkles,
   RotateCcw,
+  Link2,
 } from 'lucide-react';
 import type {
   TimetableProject,
@@ -149,6 +150,8 @@ export const DataManagement: React.FC<DataManagementProps> = ({ project, setProj
       teacherId: curr.teacherId,
       roomId: curr.roomId,
       weeklyHours: curr.weeklyHours,
+      isJoint: curr.isJoint,
+      jointClassIds: curr.jointClassIds,
     };
 
     setProject((prev) => ({
@@ -849,7 +852,27 @@ export const DataManagement: React.FC<DataManagementProps> = ({ project, setProj
 
                   return (
                     <tr key={curr.id} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="px-6 py-3 font-bold text-slate-900">{cls?.name || curr.classId}</td>
+                      <td className="px-6 py-3 font-bold text-slate-900">
+                        <div className="flex items-center space-x-1.5">
+                          <span>{cls?.name || curr.classId}</span>
+                          {curr.isJoint && curr.jointClassIds && curr.jointClassIds.length > 0 && (
+                            <span
+                              className="text-[10px] bg-purple-100 text-purple-700 font-bold px-1.5 py-0.5 rounded-full border border-purple-200 flex items-center space-x-1"
+                              title={`Összevont óra a következő osztályokkal: ${curr.jointClassIds
+                                .map((cid) => project.classes.find((c) => c.id === cid)?.name || cid)
+                                .join(', ')}`}
+                            >
+                              <Link2 className="w-2.5 h-2.5" />
+                              <span>
+                                +
+                                {curr.jointClassIds
+                                  .map((cid) => project.classes.find((c) => c.id === cid)?.name || cid)
+                                  .join(', ')}
+                              </span>
+                            </span>
+                          )}
+                        </div>
+                      </td>
                       <td className="px-6 py-3">
                         <div className="flex items-center space-x-2">
                           <span
@@ -875,13 +898,13 @@ export const DataManagement: React.FC<DataManagementProps> = ({ project, setProj
                         <div className="flex items-center justify-end space-x-2">
                           <button
                             onClick={() => setEditingCurr(curr)}
-                            className="p-1.5 text-slate-400 hover:text-indigo-600 rounded-md hover:bg-slate-100"
+                            className="p-1.5 text-slate-400 hover:text-indigo-600 rounded-md hover:bg-slate-100 cursor-pointer"
                           >
                             <Edit2 className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => handleDeleteCurriculum(curr.id)}
-                            className="p-1.5 text-slate-400 hover:text-red-600 rounded-md hover:bg-slate-100"
+                            className="p-1.5 text-slate-400 hover:text-red-600 rounded-md hover:bg-slate-100 cursor-pointer"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
@@ -911,7 +934,7 @@ export const DataManagement: React.FC<DataManagementProps> = ({ project, setProj
                   priority: 'HARD',
                 })
               }
-              className="flex items-center space-x-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold text-sm shadow transition-all"
+              className="flex items-center space-x-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold text-sm shadow transition-all cursor-pointer"
             >
               <Plus className="w-4 h-4" />
               <span>Új szabály hozzáadása</span>
@@ -946,13 +969,13 @@ export const DataManagement: React.FC<DataManagementProps> = ({ project, setProj
                   <div className="flex items-center space-x-1">
                     <button
                       onClick={() => setEditingConstraint(c)}
-                      className="p-1.5 text-slate-400 hover:text-indigo-600 rounded-md hover:bg-slate-100"
+                      className="p-1.5 text-slate-400 hover:text-indigo-600 rounded-md hover:bg-slate-100 cursor-pointer"
                     >
                       <Edit2 className="w-4 h-4" />
                     </button>
                     <button
                       onClick={() => handleDeleteConstraint(c.id)}
-                      className="p-1.5 text-slate-400 hover:text-red-600 rounded-md hover:bg-slate-100"
+                      className="p-1.5 text-slate-400 hover:text-red-600 rounded-md hover:bg-slate-100 cursor-pointer"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -970,54 +993,38 @@ export const DataManagement: React.FC<DataManagementProps> = ({ project, setProj
           <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-bold text-slate-900">
-                {editingTeacher.id ? 'Tanár szerkesztése' : 'Új tanár felvitele'}
+                {editingTeacher.id ? 'Oktató szerkesztése' : 'Új oktató felvitele'}
               </h3>
-              <button onClick={() => setEditingTeacher(null)} className="text-slate-400 hover:text-slate-600">
+              <button onClick={() => setEditingTeacher(null)} className="text-slate-400 hover:text-slate-600 cursor-pointer">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <div className="space-y-4 text-sm">
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Tanár Neve</label>
+                <label className="block font-semibold text-slate-700 mb-1">Oktató Teljes Neve</label>
                 <input
                   type="text"
                   value={editingTeacher.name || ''}
                   onChange={(e) => setEditingTeacher({ ...editingTeacher, name: e.target.value })}
-                  placeholder="pl. Kovács Orsolya"
+                  placeholder="pl. Kovács János"
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Monogram / Kód</label>
-                  <input
-                    type="text"
-                    value={editingTeacher.shortCode || ''}
-                    onChange={(e) => setEditingTeacher({ ...editingTeacher, shortCode: e.target.value })}
-                    placeholder="pl. KO"
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Max Óra / Nap</label>
-                  <input
-                    type="number"
-                    min={1}
-                    max={10}
-                    value={editingTeacher.maxDailyHours || 6}
-                    onChange={(e) =>
-                      setEditingTeacher({ ...editingTeacher, maxDailyHours: parseInt(e.target.value, 10) || 6 })
-                    }
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  />
-                </div>
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Monogram / Rövidítés</label>
+                <input
+                  type="text"
+                  value={editingTeacher.shortCode || ''}
+                  onChange={(e) => setEditingTeacher({ ...editingTeacher, shortCode: e.target.value })}
+                  placeholder="pl. KJ"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
               </div>
 
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Tanár Színkódja</label>
+                <label className="block font-semibold text-slate-700 mb-1">Oktató Színe</label>
                 <input
                   type="color"
                   value={editingTeacher.color || '#3b82f6'}
@@ -1025,18 +1032,30 @@ export const DataManagement: React.FC<DataManagementProps> = ({ project, setProj
                   className="w-full h-10 p-1 border border-slate-300 rounded-lg cursor-pointer"
                 />
               </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Max Napi Óraszám</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={8}
+                  value={editingTeacher.maxDailyHours || 6}
+                  onChange={(e) => setEditingTeacher({ ...editingTeacher, maxDailyHours: parseInt(e.target.value, 10) || 6 })}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
             </div>
 
             <div className="mt-6 flex justify-end space-x-3">
               <button
                 onClick={() => setEditingTeacher(null)}
-                className="px-4 py-2 border border-slate-300 rounded-lg text-slate-700 font-medium hover:bg-slate-50"
+                className="px-4 py-2 border border-slate-300 rounded-lg text-slate-700 font-medium hover:bg-slate-50 cursor-pointer"
               >
                 Mégse
               </button>
               <button
                 onClick={() => handleSaveTeacher(editingTeacher)}
-                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg shadow"
+                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg shadow cursor-pointer"
               >
                 Mentés
               </button>
@@ -1053,25 +1072,25 @@ export const DataManagement: React.FC<DataManagementProps> = ({ project, setProj
               <h3 className="text-lg font-bold text-slate-900">
                 {editingClass.id ? 'Osztály szerkesztése' : 'Új osztály felvitele'}
               </h3>
-              <button onClick={() => setEditingClass(null)} className="text-slate-400 hover:text-slate-600">
+              <button onClick={() => setEditingClass(null)} className="text-slate-400 hover:text-slate-600 cursor-pointer">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <div className="space-y-4 text-sm">
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Osztály megnevezése</label>
+                <label className="block font-semibold text-slate-700 mb-1">Osztály Megnevezése</label>
                 <input
                   type="text"
                   value={editingClass.name || ''}
                   onChange={(e) => setEditingClass({ ...editingClass, name: e.target.value })}
-                  placeholder="pl. 5.A"
+                  placeholder="pl. 1.o, 4.o vagy 5.a"
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
 
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Évfolyam száma</label>
+                <label className="block font-semibold text-slate-700 mb-1">Évfolyam (1-12)</label>
                 <input
                   type="number"
                   min={1}
@@ -1083,7 +1102,7 @@ export const DataManagement: React.FC<DataManagementProps> = ({ project, setProj
               </div>
 
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Kiemelő Színkód</label>
+                <label className="block font-semibold text-slate-700 mb-1">Osztály Színe</label>
                 <input
                   type="color"
                   value={editingClass.color || '#06b6d4'}
@@ -1096,13 +1115,13 @@ export const DataManagement: React.FC<DataManagementProps> = ({ project, setProj
             <div className="mt-6 flex justify-end space-x-3">
               <button
                 onClick={() => setEditingClass(null)}
-                className="px-4 py-2 border border-slate-300 rounded-lg text-slate-700 font-medium hover:bg-slate-50"
+                className="px-4 py-2 border border-slate-300 rounded-lg text-slate-700 font-medium hover:bg-slate-50 cursor-pointer"
               >
                 Mégse
               </button>
               <button
                 onClick={() => handleSaveClass(editingClass)}
-                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg shadow"
+                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg shadow cursor-pointer"
               >
                 Mentés
               </button>
@@ -1119,7 +1138,7 @@ export const DataManagement: React.FC<DataManagementProps> = ({ project, setProj
               <h3 className="text-lg font-bold text-slate-900">
                 {editingSubject.id ? 'Tantárgy szerkesztése' : 'Új tantárgy felvitele'}
               </h3>
-              <button onClick={() => setEditingSubject(null)} className="text-slate-400 hover:text-slate-600">
+              <button onClick={() => setEditingSubject(null)} className="text-slate-400 hover:text-slate-600 cursor-pointer">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -1161,13 +1180,13 @@ export const DataManagement: React.FC<DataManagementProps> = ({ project, setProj
             <div className="mt-6 flex justify-end space-x-3">
               <button
                 onClick={() => setEditingSubject(null)}
-                className="px-4 py-2 border border-slate-300 rounded-lg text-slate-700 font-medium hover:bg-slate-50"
+                className="px-4 py-2 border border-slate-300 rounded-lg text-slate-700 font-medium hover:bg-slate-50 cursor-pointer"
               >
                 Mégse
               </button>
               <button
                 onClick={() => handleSaveSubject(editingSubject)}
-                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg shadow"
+                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg shadow cursor-pointer"
               >
                 Mentés
               </button>
@@ -1179,17 +1198,17 @@ export const DataManagement: React.FC<DataManagementProps> = ({ project, setProj
       {/* Curriculum Edit Modal */}
       {editingCurr && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl">
-            <div className="flex justify-between items-center mb-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl space-y-4">
+            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
               <h3 className="text-lg font-bold text-slate-900">Tantárgyi Óraszám Beosztás</h3>
-              <button onClick={() => setEditingCurr(null)} className="text-slate-400 hover:text-slate-600">
+              <button onClick={() => setEditingCurr(null)} className="text-slate-400 hover:text-slate-600 cursor-pointer">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="space-y-4 text-sm">
+            <div className="space-y-3.5 text-sm">
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Osztály</label>
+                <label className="block font-semibold text-slate-700 mb-1">Fő Osztály</label>
                 <select
                   value={editingCurr.classId || ''}
                   onChange={(e) => setEditingCurr({ ...editingCurr, classId: e.target.value })}
@@ -1244,18 +1263,76 @@ export const DataManagement: React.FC<DataManagementProps> = ({ project, setProj
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
+
+              {/* 🔗 Összevont óra kapcsoló a tantervben */}
+              <div className="bg-purple-50 border border-purple-200 rounded-xl p-3 space-y-2">
+                <label className="flex items-center space-x-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={editingCurr.isJoint || false}
+                    onChange={(e) => {
+                      setEditingCurr({
+                        ...editingCurr,
+                        isJoint: e.target.checked,
+                        jointClassIds: e.target.checked ? (editingCurr.jointClassIds || []) : [],
+                      });
+                    }}
+                    className="rounded text-purple-600 focus:ring-purple-500 w-4 h-4 cursor-pointer"
+                  />
+                  <span className="text-xs font-bold text-purple-900 flex items-center space-x-1">
+                    <Link2 className="w-3.5 h-3.5 text-purple-600" />
+                    <span>Összevont óra (más osztállyal közös)</span>
+                  </span>
+                </label>
+
+                {editingCurr.isJoint && (
+                  <div className="pt-2 border-t border-purple-200 space-y-1.5">
+                    <div className="text-[11px] font-bold text-purple-800">
+                      Válaszd ki a többi közös osztályt:
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {project.classes
+                        .filter((c) => c.id !== editingCurr.classId)
+                        .map((c) => {
+                          const currentJoint = editingCurr.jointClassIds || [];
+                          const isSelected = currentJoint.includes(c.id);
+                          return (
+                            <button
+                              key={c.id}
+                              type="button"
+                              onClick={() => {
+                                const next = isSelected
+                                  ? currentJoint.filter((id) => id !== c.id)
+                                  : [...currentJoint, c.id];
+                                setEditingCurr({ ...editingCurr, jointClassIds: next });
+                              }}
+                              className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition-all cursor-pointer flex items-center space-x-1 ${
+                                isSelected
+                                  ? 'bg-purple-600 text-white border-purple-600'
+                                  : 'bg-white text-slate-700 border-purple-200 hover:border-purple-400'
+                              }`}
+                            >
+                              <span>{c.name}</span>
+                              {isSelected && <span>✓</span>}
+                            </button>
+                          );
+                        })}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="mt-6 flex justify-end space-x-3">
               <button
                 onClick={() => setEditingCurr(null)}
-                className="px-4 py-2 border border-slate-300 rounded-lg text-slate-700 font-medium hover:bg-slate-50"
+                className="px-4 py-2 border border-slate-300 rounded-lg text-slate-700 font-medium hover:bg-slate-50 cursor-pointer"
               >
                 Mégse
               </button>
               <button
                 onClick={() => handleSaveCurriculum(editingCurr)}
-                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg shadow"
+                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg shadow cursor-pointer"
               >
                 Mentés
               </button>

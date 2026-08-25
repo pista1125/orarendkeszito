@@ -26,6 +26,8 @@ interface UnplacedLessonUnit {
   teacherId: string;
   roomId?: string;
   unitIndex: number;
+  isJoint?: boolean;
+  jointClassIds?: string[];
 }
 
 export function generateTimetable(
@@ -52,6 +54,8 @@ export function generateTimetable(
         teacherId: req.teacherId,
         roomId: req.roomId,
         unitIndex: i,
+        isJoint: req.isJoint,
+        jointClassIds: req.jointClassIds,
       });
     }
   });
@@ -92,12 +96,18 @@ export function generateTimetable(
     day: DayOfWeek,
     period: number
   ): { valid: boolean; penalty: number } {
+    const allUnitClasses = unit.isJoint && unit.jointClassIds && unit.jointClassIds.length > 0
+      ? Array.from(new Set([unit.classId, ...unit.jointClassIds]))
+      : [unit.classId];
+
     if (teacherOccupied.has(`${day}-${period}-${unit.teacherId}`)) {
       return { valid: false, penalty: Infinity };
     }
 
-    if (classOccupied.has(`${day}-${period}-${unit.classId}`)) {
-      return { valid: false, penalty: Infinity };
+    for (const cId of allUnitClasses) {
+      if (classOccupied.has(`${day}-${period}-${cId}`)) {
+        return { valid: false, penalty: Infinity };
+      }
     }
 
     const teacher = teachers.find((t) => t.id === unit.teacherId);
@@ -108,7 +118,7 @@ export function generateTimetable(
 
     for (const c of constraints) {
       if (c.type === 'NO_SUBJECT_PERIOD' && c.priority === 'HARD') {
-        const matchClass = !c.classId || c.classId === unit.classId;
+        const matchClass = !c.classId || allUnitClasses.includes(c.classId);
         const matchSubject = !c.subjectId || c.subjectId === unit.subjectId;
         const matchDay = c.day === undefined || c.day === day;
         const matchPeriod = c.period === undefined || c.period === period;
@@ -154,25 +164,35 @@ export function generateTimetable(
     }
 
     if (bestPlacement) {
-      const newSlot: TimetableSlot = {
-        id: `slot-auto-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
-        day: bestPlacement.day,
-        period: bestPlacement.period,
-        classId: unit.classId,
-        subjectId: unit.subjectId,
-        teacherId: unit.teacherId,
-        roomId: unit.roomId,
-        isLocked: false,
-      };
+      const allUnitClasses = unit.isJoint && unit.jointClassIds && unit.jointClassIds.length > 0
+        ? Array.from(new Set([unit.classId, ...unit.jointClassIds]))
+        : [unit.classId];
 
-      currentSlots.push(newSlot);
+      const jointSlotId = allUnitClasses.length > 1 ? `joint-${Date.now()}-${Math.random().toString(36).substr(2, 4)}` : undefined;
+
+      allUnitClasses.forEach((cId) => {
+        const newSlot: TimetableSlot = {
+          id: `slot-auto-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+          day: bestPlacement!.day,
+          period: bestPlacement!.period,
+          classId: cId,
+          subjectId: unit.subjectId,
+          teacherId: unit.teacherId,
+          roomId: unit.roomId,
+          isLocked: false,
+          isJoint: allUnitClasses.length > 1,
+          jointSlotId,
+          jointClassIds: allUnitClasses.length > 1 ? allUnitClasses : undefined,
+        };
+
+        currentSlots.push(newSlot);
+        classOccupied.add(`${bestPlacement!.day}-${bestPlacement!.period}-${cId}`);
+
+        const classDaySubjKey = `${cId}-${bestPlacement!.day}-${unit.subjectId}`;
+        classDaySubjectCount.set(classDaySubjKey, (classDaySubjectCount.get(classDaySubjKey) || 0) + 1);
+      });
 
       teacherOccupied.add(`${bestPlacement.day}-${bestPlacement.period}-${unit.teacherId}`);
-      classOccupied.add(`${bestPlacement.day}-${bestPlacement.period}-${unit.classId}`);
-
-      const classDaySubjKey = `${unit.classId}-${bestPlacement.day}-${unit.subjectId}`;
-      classDaySubjectCount.set(classDaySubjKey, (classDaySubjectCount.get(classDaySubjKey) || 0) + 1);
-
       const teacherDayKey = `${unit.teacherId}-${bestPlacement.day}`;
       teacherDailyHours.set(teacherDayKey, (teacherDailyHours.get(teacherDayKey) || 0) + 1);
     } else {

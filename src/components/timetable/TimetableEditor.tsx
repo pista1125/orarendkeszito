@@ -13,6 +13,7 @@ import {
   Search,
   Filter,
   Layers,
+  Link2,
 } from 'lucide-react';
 import type {
   TimetableProject,
@@ -30,6 +31,10 @@ interface TimetableEditorProps {
   setProject: React.Dispatch<React.SetStateAction<TimetableProject>>;
   conflicts: Conflict[];
   onOpenGenerator: () => void;
+  highlightTeacherId?: string;
+  setHighlightTeacherId?: (id: string) => void;
+  highlightSubjectId?: string;
+  setHighlightSubjectId?: (id: string) => void;
 }
 
 export const TimetableEditor: React.FC<TimetableEditorProps> = ({
@@ -37,38 +42,62 @@ export const TimetableEditor: React.FC<TimetableEditorProps> = ({
   setProject,
   conflicts,
   onOpenGenerator,
+  highlightTeacherId: propHighlightTeacherId,
+  setHighlightTeacherId: propSetHighlightTeacherId,
+  highlightSubjectId: propHighlightSubjectId,
+  setHighlightSubjectId: propSetHighlightSubjectId,
 }) => {
+  // Navigation view: 'master' (Fő tábla) | 'class' | 'teacher' | 'room' | 'teacher_matrix'
   const [viewMode, setViewMode] = useState<
     'master' | 'class' | 'teacher' | 'room' | 'teacher_matrix'
   >('master');
 
-  const [selectedClassId, setSelectedClassId] = useState<string>(project.classes[0]?.id || '');
-  const [selectedTeacherId, setSelectedTeacherId] = useState<string>(project.teachers[0]?.id || '');
-  const [selectedRoomId, setSelectedRoomId] = useState<string>(project.rooms[0]?.id || '');
+  const [internalHighlightTeacherId, setInternalHighlightTeacherId] = useState('');
+  const [internalHighlightSubjectId, setInternalHighlightSubjectId] = useState('');
 
-  const [highlightTeacherId, setHighlightTeacherId] = useState<string>('');
-  const [highlightSubjectId, setHighlightSubjectId] = useState<string>('');
+  const highlightTeacherId = propHighlightTeacherId !== undefined ? propHighlightTeacherId : internalHighlightTeacherId;
+  const setHighlightTeacherId = propSetHighlightTeacherId || setInternalHighlightTeacherId;
 
-  const [poolFilterClass, setPoolFilterClass] = useState<string>('ALL');
-  const [poolSearchText, setPoolSearchText] = useState<string>('');
+  const highlightSubjectId = propHighlightSubjectId !== undefined ? propHighlightSubjectId : internalHighlightSubjectId;
+  const setHighlightSubjectId = propSetHighlightSubjectId || setInternalHighlightSubjectId;
 
+  // Selected filters for individual views
+  const [selectedClassId, setSelectedClassId] = useState<string>(
+    project.classes[0]?.id || ''
+  );
+  const [selectedTeacherId, setSelectedTeacherId] = useState<string>(
+    project.teachers[0]?.id || ''
+  );
+  const [selectedRoomId, setSelectedRoomId] = useState<string>(
+    project.rooms[0]?.id || ''
+  );
+
+  // Active periods from project or default
+  const activePeriods = project.periods && project.periods.length > 0
+    ? project.periods
+    : DEFAULT_PERIODS;
+
+  // Search & filter in drag-pool
+  const [poolSearchText, setPoolSearchText] = useState('');
+  const [poolFilterClass, setPoolFilterClass] = useState<string>('all');
+
+  // Quick slot assign modal
   const [activeSlotTarget, setActiveSlotTarget] = useState<{
     day: DayOfWeek;
     period: number;
     classId: string;
   } | null>(null);
 
+  // Drag state
   const [draggedCurriculumId, setDraggedCurriculumId] = useState<string | null>(null);
 
-  const activePeriods = project.periods && project.periods.length > 0
-    ? project.periods
-    : DEFAULT_PERIODS;
-
+  // Curriculum progress
   const progressList: CurriculumProgress[] = useMemo(
     () => calculateCurriculumProgress(project.curriculum, project.slots),
     [project.curriculum, project.slots]
   );
 
+  // Handle slot locking
   const handleToggleLock = (slotId: string) => {
     setProject((prev) => ({
       ...prev,
@@ -76,11 +105,21 @@ export const TimetableEditor: React.FC<TimetableEditorProps> = ({
     }));
   };
 
-  const handleRemoveSlot = (slotId: string) => {
-    setProject((prev) => ({
-      ...prev,
-      slots: prev.slots.filter((s) => s.id !== slotId),
-    }));
+  // Handle slot delete (removes linked joint slots as well)
+  const handleRemoveSlot = (slotId: string, removeAllJoint: boolean = true) => {
+    setProject((prev) => {
+      const target = prev.slots.find((s) => s.id === slotId);
+      if (target && target.isJoint && target.jointSlotId && removeAllJoint) {
+        return {
+          ...prev,
+          slots: prev.slots.filter((s) => s.jointSlotId !== target.jointSlotId),
+        };
+      }
+      return {
+        ...prev,
+        slots: prev.slots.filter((s) => s.id !== slotId),
+      };
+    });
   };
 
   const handleAssignSlot = (
@@ -161,10 +200,12 @@ export const TimetableEditor: React.FC<TimetableEditorProps> = ({
   };
 
   // Filtered pool items
-  const filteredPoolItems = useMemo(() => {
+  const filteredPool = useMemo(() => {
     return progressList.filter((p) => {
-      if (poolFilterClass !== 'ALL' && p.classId !== poolFilterClass) return false;
-      if (poolSearchText.trim()) {
+      if (poolFilterClass !== 'all' && p.classId !== poolFilterClass) {
+        return false;
+      }
+      if (poolSearchText.trim() !== '') {
         const subj = project.subjects.find((s) => s.id === p.subjectId)?.name.toLowerCase() || '';
         const teacher = project.teachers.find((t) => t.id === p.teacherId)?.name.toLowerCase() || '';
         const cls = project.classes.find((c) => c.id === p.classId)?.name.toLowerCase() || '';
@@ -177,26 +218,27 @@ export const TimetableEditor: React.FC<TimetableEditorProps> = ({
     });
   }, [progressList, poolFilterClass, poolSearchText, project.subjects, project.teachers, project.classes]);
 
-  // Selected teacher stats for teacher view
+  // Selected teacher stats for teacher view (joint lessons count as 1 teaching hour)
   const teacherStats = useMemo(() => {
     if (!selectedTeacherId) return null;
     const teacher = project.teachers.find((t) => t.id === selectedTeacherId);
     const teacherSlots = project.slots.filter((s) => s.teacherId === selectedTeacherId);
-    const totalWeeklyHours = teacherSlots.length;
+    const uniqueSlotsKeys = new Set(teacherSlots.map((s) => `${s.day}-${s.period}`));
+    const totalWeeklyHours = uniqueSlotsKeys.size;
 
     // Daily breakdown & free periods (lyukasórák)
     const dailyHours = [0, 1, 2, 3, 4].map((dayIdx) => {
       const daySlots = teacherSlots.filter((s) => s.day === dayIdx);
-      const periods = daySlots.map((s) => s.period).sort((a, b) => a - b);
+      const uniquePeriods = Array.from(new Set(daySlots.map((s) => s.period))).sort((a, b) => a - b);
       let holes = 0;
-      if (periods.length > 1) {
-        const minP = periods[0];
-        const maxP = periods[periods.length - 1];
-        holes = maxP - minP + 1 - periods.length;
+      if (uniquePeriods.length > 1) {
+        const minP = uniquePeriods[0];
+        const maxP = uniquePeriods[uniquePeriods.length - 1];
+        holes = maxP - minP + 1 - uniquePeriods.length;
       }
       return {
         dayName: DAYS_HUNGARIAN[dayIdx],
-        count: daySlots.length,
+        count: uniquePeriods.length,
         holes,
       };
     });
@@ -455,7 +497,7 @@ export const TimetableEditor: React.FC<TimetableEditorProps> = ({
                                       </button>
 
                                       <button
-                                        onClick={() => handleRemoveSlot(slot.id)}
+                                        onClick={() => handleRemoveSlot(slot.id, true)}
                                         className="p-0.5 rounded hover:bg-black/30 text-white/80 hover:text-red-200"
                                         title="Törlés"
                                       >
@@ -463,6 +505,28 @@ export const TimetableEditor: React.FC<TimetableEditorProps> = ({
                                       </button>
                                     </div>
                                   </div>
+
+                                  {slot.isJoint && (
+                                    <div
+                                      className="flex items-center space-x-1 text-[9px] bg-purple-950/80 text-purple-200 border border-purple-400/40 px-1 py-0.2 rounded font-black my-0.5"
+                                      title="Összevont óra más osztályokkal"
+                                    >
+                                      <Link2 className="w-2.5 h-2.5 text-purple-300 shrink-0" />
+                                      <span className="truncate">
+                                        Összevont:{' '}
+                                        {slot.jointClassIds
+                                          ? slot.jointClassIds
+                                              .filter((cid) => cid !== slot.classId)
+                                              .map(
+                                                (cid) =>
+                                                  project.classes.find((c) => c.id === cid)?.name ||
+                                                  cid
+                                              )
+                                              .join(', ')
+                                          : ''}
+                                      </span>
+                                    </div>
+                                  )}
 
                                   <div className="my-0.5">
                                     <div className="flex items-center justify-between text-[11px] text-white/90">
@@ -618,6 +682,12 @@ export const TimetableEditor: React.FC<TimetableEditorProps> = ({
                                 const subj = project.subjects.find((s) => s.id === slot.subjectId);
                                 const room = project.rooms.find((r) => r.id === slot.roomId);
 
+                                const allJointClasses = slot.isJoint && slot.jointClassIds
+                                  ? slot.jointClassIds
+                                      .map((cid) => project.classes.find((c) => c.id === cid)?.name || cid)
+                                      .join(' + ')
+                                  : cls?.name;
+
                                 return (
                                   <div
                                     key={slot.id}
@@ -627,7 +697,10 @@ export const TimetableEditor: React.FC<TimetableEditorProps> = ({
                                     }}
                                   >
                                     <div className="flex justify-between items-center text-xs font-black">
-                                      <span>{cls?.name}</span>
+                                      <span className="flex items-center space-x-1">
+                                        {slot.isJoint && <Link2 className="w-3 h-3 text-purple-200" />}
+                                        <span>{allJointClasses}</span>
+                                      </span>
                                       <span className="text-[10px] bg-black/25 px-1 py-0.2 rounded">
                                         {subj?.shortCode || subj?.name}
                                       </span>
@@ -903,7 +976,7 @@ export const TimetableEditor: React.FC<TimetableEditorProps> = ({
 
         {/* Draggable Cards Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 max-h-72 overflow-y-auto pr-1">
-          {filteredPoolItems.map((p) => {
+          {filteredPool.map((p) => {
             const cls = project.classes.find((c) => c.id === p.classId);
             const subj = project.subjects.find((s) => s.id === p.subjectId);
             const teacher = project.teachers.find((t) => t.id === p.teacherId);

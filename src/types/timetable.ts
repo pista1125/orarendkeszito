@@ -56,6 +56,9 @@ export interface CurriculumRequirement {
   teacherId: string;
   roomId?: string;
   weeklyHours: number;
+  isJoint?: boolean; // Összevont óra (több osztály közös órája)
+  jointClassIds?: string[]; // A többi összevont osztály azonosítója
+  jointGroupId?: string; // Közös csoport azonosító
 }
 
 // Individual slot entry in the timetable
@@ -69,6 +72,9 @@ export interface TimetableSlot {
   roomId?: string;
   groupName?: string; // e.g. "1. csoport", "Lányok", "Haladó"
   isLocked?: boolean; // if locked, automatic generator will not touch/move it
+  isJoint?: boolean; // Összevont óra (pl. 3. és 4. osztály együtt egy tanárral)
+  jointSlotId?: string; // Kapcsolt azonosító az összevont órák összetartozásához
+  jointClassIds?: string[]; // Az összes összevont osztály azonosítója (pl. ['c-3', 'c-4'])
 }
 
 export type ConstraintType =

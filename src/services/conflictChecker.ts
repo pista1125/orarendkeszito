@@ -54,21 +54,32 @@ export function detectConflicts(
 
     teacherSlotsMap.forEach((tSlots, teacherId) => {
       if (tSlots.length > 1) {
-        const teacher = teachers.find((t) => t.id === teacherId);
-        const tName = teacher ? teacher.name : 'Ismeretlen tanár';
-        const classNames = tSlots
-          .map((s) => classes.find((c) => c.id === s.classId)?.name || s.classId)
-          .join(', ');
+        // Check if all slots in tSlots are part of the SAME intended joint/merged lesson
+        const isLegitJoint = tSlots.every(
+          (s) =>
+            s.isJoint &&
+            (s.jointSlotId
+              ? s.jointSlotId === tSlots[0].jointSlotId
+              : s.subjectId === tSlots[0].subjectId)
+        );
 
-        conflicts.push({
-          id: `conflict-t-${teacherId}-${day}-${period}`,
-          type: 'TEACHER_OVERLAP',
-          severity: 'ERROR',
-          message: `Tanári ütközés: ${tName} egyszerre van beosztva több osztályhoz (${classNames}) a ${day + 1}. nap ${period}. órájában.`,
-          day,
-          period,
-          involvedSlotIds: tSlots.map((s) => s.id),
-        });
+        if (!isLegitJoint) {
+          const teacher = teachers.find((t) => t.id === teacherId);
+          const tName = teacher ? teacher.name : 'Ismeretlen tanár';
+          const classNames = tSlots
+            .map((s) => classes.find((c) => c.id === s.classId)?.name || s.classId)
+            .join(', ');
+
+          conflicts.push({
+            id: `conflict-t-${teacherId}-${day}-${period}`,
+            type: 'TEACHER_OVERLAP',
+            severity: 'ERROR',
+            message: `Tanári ütközés: ${tName} egyszerre van beosztva több osztályhoz (${classNames}) a ${day + 1}. nap ${period}. órájában.`,
+            day,
+            period,
+            involvedSlotIds: tSlots.map((s) => s.id),
+          });
+        }
       }
     });
 
@@ -115,15 +126,26 @@ export function detectConflicts(
 
     roomSlotsMap.forEach((rSlots, roomId) => {
       if (rSlots.length > 1) {
-        conflicts.push({
-          id: `conflict-room-${roomId}-${day}-${period}`,
-          type: 'CONSTRAINT_VIOLATION',
-          severity: 'ERROR',
-          message: `Terem ütközés: Egy teremhez több óra is be van osztva a ${day + 1}. nap ${period}. órájában.`,
-          day,
-          period,
-          involvedSlotIds: rSlots.map((s) => s.id),
-        });
+        // Check if all slots in rSlots are part of the same joint/merged lesson
+        const isLegitJointRoom = rSlots.every(
+          (s) =>
+            s.isJoint &&
+            (s.jointSlotId
+              ? s.jointSlotId === rSlots[0].jointSlotId
+              : s.teacherId === rSlots[0].teacherId && s.subjectId === rSlots[0].subjectId)
+        );
+
+        if (!isLegitJointRoom) {
+          conflicts.push({
+            id: `conflict-room-${roomId}-${day}-${period}`,
+            type: 'CONSTRAINT_VIOLATION',
+            severity: 'ERROR',
+            message: `Terem ütközés: Egy teremhez több óra is be van osztva a ${day + 1}. nap ${period}. órájában.`,
+            day,
+            period,
+            involvedSlotIds: rSlots.map((s) => s.id),
+          });
+        }
       }
     });
 

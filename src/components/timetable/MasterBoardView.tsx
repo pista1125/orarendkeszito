@@ -13,6 +13,7 @@ import {
   Clock,
   Maximize2,
   Minimize2,
+  Link2,
 } from 'lucide-react';
 import type {
   TimetableProject,
@@ -47,20 +48,36 @@ export const MasterBoardView: React.FC<MasterBoardViewProps> = ({
   highlightSubjectId,
   setHighlightSubjectId,
 }) => {
-  // Column (Class) filter & visibility
-  const [selectedClassIds, setSelectedClassIds] = useState<string[]>(
-    project.classes.map((c) => c.id)
-  );
-  const [isClassFilterOpen, setIsClassFilterOpen] = useState(false);
-  const [maxPeriodVisible, setMaxPeriodVisible] = useState<number>(8);
+  // Density: 'compact' | 'normal' | 'spacious'
   const [cellDensity, setCellDensity] = useState<'compact' | 'normal' | 'spacious'>('normal');
 
-  // Quick assign modal
+  // Max visible periods selector: 6, 7, or 8 (default 8)
+  const [maxPeriodVisible, setMaxPeriodVisible] = useState<number>(8);
+
+  // Selected classes filter (default all)
+  const [selectedClassIds, setSelectedClassIds] = useState<string[]>(() =>
+    project.classes.map((c) => c.id)
+  );
+
+  const [isClassFilterOpen, setIsClassFilterOpen] = useState(false);
+
+  // Quick slot assign modal
   const [activeSlotTarget, setActiveSlotTarget] = useState<{
     day: DayOfWeek;
     period: number;
     classId: string;
   } | null>(null);
+
+  // Quick slot assign joint state
+  const [isJointAssign, setIsJointAssign] = useState<boolean>(false);
+  const [selectedJointClassIds, setSelectedJointClassIds] = useState<string[]>([]);
+  const [assignTab, setAssignTab] = useState<'curriculum' | 'custom'>('curriculum');
+  const [customSubjectId, setCustomSubjectId] = useState<string>('');
+  const [customTeacherId, setCustomTeacherId] = useState<string>('');
+  const [customRoomId, setCustomRoomId] = useState<string>('');
+
+  // Hovered joint slot for cross-column link highlighting
+  const [hoveredJointSlotId, setHoveredJointSlotId] = useState<string | null>(null);
 
   // Drag and drop state
   const [draggedItem, setDraggedItem] = useState<{
@@ -179,15 +196,24 @@ export const MasterBoardView: React.FC<MasterBoardViewProps> = ({
     }));
   };
 
-  // Handle slot delete
-  const handleRemoveSlot = (slotId: string) => {
-    setProject((prev) => ({
-      ...prev,
-      slots: prev.slots.filter((s) => s.id !== slotId),
-    }));
+  // Handle slot delete (removes linked joint slots as well)
+  const handleRemoveSlot = (slotId: string, removeAllJoint: boolean = true) => {
+    setProject((prev) => {
+      const targetSlot = prev.slots.find((s) => s.id === slotId);
+      if (targetSlot && targetSlot.isJoint && targetSlot.jointSlotId && removeAllJoint) {
+        return {
+          ...prev,
+          slots: prev.slots.filter((s) => s.jointSlotId !== targetSlot.jointSlotId),
+        };
+      }
+      return {
+        ...prev,
+        slots: prev.slots.filter((s) => s.id !== slotId),
+      };
+    });
   };
 
-  // Assign slot
+  // Assign slot (supports joint assignment across multiple classes)
   const handleAssignSlot = (
     day: DayOfWeek,
     period: number,
@@ -195,26 +221,45 @@ export const MasterBoardView: React.FC<MasterBoardViewProps> = ({
     subjectId: string,
     teacherId: string,
     roomId?: string,
-    groupName?: string
+    groupName?: string,
+    isJoint?: boolean,
+    jointWithClassIds?: string[]
   ) => {
-    const newSlot: TimetableSlot = {
-      id: `slot-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+    const allClassIds = isJoint && jointWithClassIds && jointWithClassIds.length > 0
+      ? Array.from(new Set([classId, ...jointWithClassIds]))
+      : [classId];
+
+    const isActuallyJoint = allClassIds.length > 1;
+    const jointSlotId = isActuallyJoint
+      ? `joint-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`
+      : undefined;
+
+    const newSlots: TimetableSlot[] = allClassIds.map((cId) => ({
+      id: `slot-${Date.now()}-${cId}-${Math.random().toString(36).substr(2, 5)}`,
       day,
       period,
-      classId,
+      classId: cId,
       subjectId,
       teacherId,
       roomId,
       groupName,
       isLocked: false,
-    };
+      isJoint: isActuallyJoint,
+      jointSlotId,
+      jointClassIds: isActuallyJoint ? allClassIds : undefined,
+    }));
 
     setProject((prev) => ({
       ...prev,
-      slots: [...prev.slots, newSlot],
+      slots: [...prev.slots, ...newSlots],
     }));
 
     setActiveSlotTarget(null);
+    setIsJointAssign(false);
+    setSelectedJointClassIds([]);
+    setCustomSubjectId('');
+    setCustomTeacherId('');
+    setCustomRoomId('');
   };
 
   // Drag handlers
@@ -274,15 +319,27 @@ export const MasterBoardView: React.FC<MasterBoardViewProps> = ({
         const movingSlot = project.slots.find((s) => s.id === dragData.slotId);
         if (!movingSlot) return;
 
-        // Move the slot to target day, period and classId
-        setProject((prev) => ({
-          ...prev,
-          slots: prev.slots.map((s) =>
-            s.id === dragData.slotId
-              ? { ...s, day, period, classId: targetClassId }
-              : s
-          ),
-        }));
+        // If it's a joint slot, move ALL linked class slots to the new day & period!
+        if (movingSlot.isJoint && movingSlot.jointSlotId) {
+          setProject((prev) => ({
+            ...prev,
+            slots: prev.slots.map((s) =>
+              s.jointSlotId === movingSlot.jointSlotId
+                ? { ...s, day, period }
+                : s
+            ),
+          }));
+        } else {
+          // Regular single slot move
+          setProject((prev) => ({
+            ...prev,
+            slots: prev.slots.map((s) =>
+              s.id === dragData.slotId
+                ? { ...s, day, period, classId: targetClassId }
+                : s
+            ),
+          }));
+        }
       } else if (dragData.curriculumId || (dragData.type === 'pool' && draggedItem?.id)) {
         const currId = dragData.curriculumId || draggedItem?.id;
         const curr = project.curriculum.find((c) => c.id === currId);
@@ -293,7 +350,10 @@ export const MasterBoardView: React.FC<MasterBoardViewProps> = ({
             targetClassId,
             curr.subjectId,
             curr.teacherId,
-            curr.roomId
+            curr.roomId,
+            undefined,
+            curr.isJoint,
+            curr.jointClassIds
           );
         }
       }
@@ -827,7 +887,6 @@ export const MasterBoardView: React.FC<MasterBoardViewProps> = ({
                                     const isDimmed =
                                       (highlightTeacherId && !isHighlightedTeacher) ||
                                       (highlightSubjectId && !isHighlightedSubj);
-
                                     const slotConflicts = getSlotConflicts(
                                       day,
                                       period,
@@ -838,16 +897,41 @@ export const MasterBoardView: React.FC<MasterBoardViewProps> = ({
                                       (c) => c.severity === 'ERROR'
                                     );
 
+                                    const isLinkedHovered = Boolean(
+                                      slot.isJoint &&
+                                      slot.jointSlotId &&
+                                      hoveredJointSlotId === slot.jointSlotId
+                                    );
+
+                                    const otherJointClassNames =
+                                      slot.isJoint && slot.jointClassIds
+                                        ? slot.jointClassIds
+                                            .filter((cid) => cid !== slot.classId)
+                                            .map(
+                                              (cid) =>
+                                                project.classes.find((c) => c.id === cid)?.name ||
+                                                cid
+                                            )
+                                        : [];
+
                                     return (
                                       <div
                                         key={slot.id}
                                         draggable={!slot.isLocked}
                                         onDragStart={(e) => handleDragStartFromSlot(e, slot)}
+                                        onMouseEnter={() =>
+                                          slot.jointSlotId && setHoveredJointSlotId(slot.jointSlotId)
+                                        }
+                                        onMouseLeave={() => setHoveredJointSlotId(null)}
                                         className={`rounded-lg p-1.5 flex flex-col justify-between text-white shadow-xs relative group cursor-grab active:cursor-grabbing transition-all transform hover:-translate-y-0.5 ${
                                           isDimmed ? 'opacity-35 grayscale-25 scale-98' : 'opacity-100'
                                         } ${
                                           isHighlightedTeacher
                                             ? 'ring-3 ring-amber-400 ring-offset-1 shadow-lg scale-102 z-10'
+                                            : ''
+                                        } ${
+                                          isLinkedHovered
+                                            ? 'ring-3 ring-purple-400 ring-offset-1 shadow-xl shadow-purple-500/50 scale-102 z-30'
                                             : ''
                                         } ${
                                           hasSlotError
@@ -886,20 +970,37 @@ export const MasterBoardView: React.FC<MasterBoardViewProps> = ({
                                             <button
                                               onClick={(e) => {
                                                 e.stopPropagation();
-                                                handleRemoveSlot(slot.id);
+                                                handleRemoveSlot(slot.id, true);
                                               }}
                                               className="p-0.5 rounded hover:bg-black/30 text-white hover:text-red-200"
-                                              title="Eltávolítás az órarendből"
+                                              title={
+                                                slot.isJoint
+                                                  ? 'Összevont óra eltávolítása az összes érintett osztályból'
+                                                  : 'Eltávolítás az órarendből'
+                                              }
                                             >
                                               <Trash2 className="w-2.5 h-2.5" />
                                             </button>
                                           </div>
                                         </div>
 
+                                        {/* Joint / Merged class indicator badge */}
+                                        {slot.isJoint && (
+                                          <div
+                                            className="flex items-center space-x-1 text-[9px] bg-purple-950/80 text-purple-200 border border-purple-400/40 px-1 py-0.2 rounded font-black mt-0.5 shadow-xs"
+                                            title={`Összevont óra más osztályokkal: ${otherJointClassNames.join(', ')}`}
+                                          >
+                                            <Link2 className="w-2.5 h-2.5 text-purple-300 shrink-0" />
+                                            <span className="truncate">
+                                              +{otherJointClassNames.join('+')}
+                                            </span>
+                                          </div>
+                                        )}
+
                                         {/* Card Middle: Teacher & Room */}
                                         <div className="flex items-center justify-between mt-1 text-[11px] font-bold text-white/95">
                                           <span
-                                            className="bg-black/25 px-1 py-0.2 rounded text-[10px] tracking-wide"
+                                            className="bg-black/25 px-1 py-0.2 rounded text-[10px] tracking-wide truncate max-w-[70px]"
                                             title={teacher?.name}
                                           >
                                             {teacher?.shortCode || teacher?.name}
@@ -936,13 +1037,19 @@ export const MasterBoardView: React.FC<MasterBoardViewProps> = ({
                                 </div>
                               ) : (
                                 <button
-                                  onClick={() =>
+                                  onClick={() => {
                                     setActiveSlotTarget({
                                       day,
                                       period,
                                       classId: cls.id,
-                                    })
-                                  }
+                                    });
+                                    setIsJointAssign(false);
+                                    setSelectedJointClassIds([]);
+                                    setAssignTab('curriculum');
+                                    setCustomSubjectId(project.subjects[0]?.id || '');
+                                    setCustomTeacherId(project.teachers[0]?.id || '');
+                                    setCustomRoomId(project.rooms[0]?.id || '');
+                                  }}
                                   className="w-full h-full min-h-[50px] rounded-lg border border-dashed border-amber-900/20 dark:border-slate-700 hover:border-indigo-500 hover:bg-indigo-50/50 dark:hover:bg-indigo-950/30 flex flex-col items-center justify-center text-slate-400 hover:text-indigo-600 transition-all group"
                                   title="Óra elhelyezése ide"
                                 >
@@ -965,112 +1072,293 @@ export const MasterBoardView: React.FC<MasterBoardViewProps> = ({
       {/* Quick Slot Assign Modal */}
       {activeSlotTarget && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl p-6 w-full max-w-lg shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 w-full max-w-lg shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150 border border-slate-200 dark:border-slate-800">
+            <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-3">
               <div>
-                <h3 className="text-lg font-black text-slate-900">
-                  Óra Beosztása: {DAYS_HUNGARIAN[activeSlotTarget.day]}{' '}
-                  {activeSlotTarget.period}. óra
+                <h3 className="text-lg font-black text-slate-900 dark:text-white flex items-center space-x-2">
+                  <span>Óra Beosztása</span>
+                  <span className="text-xs px-2 py-0.5 bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 rounded-full font-bold">
+                    {DAYS_HUNGARIAN[activeSlotTarget.day]} {activeSlotTarget.period}. óra
+                  </span>
                 </h3>
-                <p className="text-xs text-slate-500">
-                  Osztály:{' '}
-                  <span className="font-bold text-indigo-600">
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  Kijelölt osztály:{' '}
+                  <span className="font-black text-indigo-600 dark:text-indigo-400">
                     {project.classes.find((c) => c.id === activeSlotTarget.classId)?.name}
                   </span>
                 </p>
               </div>
               <button
                 onClick={() => setActiveSlotTarget(null)}
-                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 font-bold flex items-center justify-center"
+                className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-500 font-bold flex items-center justify-center cursor-pointer"
               >
                 ✕
               </button>
             </div>
 
-            <div className="space-y-3">
-              <div className="text-xs font-bold text-slate-700">
-                Válassz a tantárgyi követelményekből:
-              </div>
+            {/* Tab switcher: Curriculum vs Custom */}
+            <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-xl gap-1">
+              <button
+                onClick={() => setAssignTab('curriculum')}
+                className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                  assignTab === 'curriculum'
+                    ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-xs'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                }`}
+              >
+                🎓 Óratervből választás
+              </button>
+              <button
+                onClick={() => setAssignTab('custom')}
+                className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                  assignTab === 'custom'
+                    ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-xs'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                }`}
+              >
+                ✏️ Egyedi óra / Összevonás
+              </button>
+            </div>
 
-              <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
-                {project.curriculum
-                  .filter((c) => c.classId === activeSlotTarget.classId)
-                  .map((curr) => {
-                    const subj = project.subjects.find((s) => s.id === curr.subjectId);
-                    const teacher = project.teachers.find((t) => t.id === curr.teacherId);
-                    const room = project.rooms.find((r) => r.id === curr.roomId);
+            {/* 🔗 Összevont óra (Több osztály együtt) szekció */}
+            <div className="bg-purple-50/80 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800/50 rounded-2xl p-3.5 space-y-2.5">
+              <label className="flex items-center space-x-2.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={isJointAssign}
+                  onChange={(e) => {
+                    setIsJointAssign(e.target.checked);
+                    if (!e.target.checked) setSelectedJointClassIds([]);
+                  }}
+                  className="rounded text-purple-600 focus:ring-purple-500 w-4 h-4 cursor-pointer"
+                />
+                <div className="flex items-center space-x-1.5">
+                  <Link2 className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                  <span className="text-xs font-black text-purple-900 dark:text-purple-200">
+                    🔗 Összevont óra (több osztály együttes órája egy tanárral)
+                  </span>
+                </div>
+              </label>
 
-                    const progress = progressList.find((p) => p.curriculumId === curr.id);
-                    const assigned = progress?.assignedHours || 0;
-                    const required = curr.weeklyHours;
-
-                    const teacherStatus = getTeacherStatus(
-                      curr.teacherId,
-                      activeSlotTarget.day,
-                      activeSlotTarget.period
-                    );
-
-                    return (
-                      <button
-                        key={curr.id}
-                        onClick={() =>
-                          handleAssignSlot(
-                            activeSlotTarget.day,
-                            activeSlotTarget.period,
-                            activeSlotTarget.classId,
-                            curr.subjectId,
-                            curr.teacherId,
-                            curr.roomId
-                          )
-                        }
-                        className={`w-full text-left p-3 rounded-2xl border transition-all flex items-center justify-between ${
-                          !teacherStatus.available
-                            ? 'bg-amber-50/70 border-amber-300 hover:border-amber-500'
-                            : 'bg-white border-slate-200 hover:border-indigo-500 hover:bg-indigo-50/40 shadow-xs'
-                        }`}
-                      >
-                        <div className="flex items-center space-x-3">
-                          <div
-                            className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-black text-xs shadow-xs"
-                            style={{ backgroundColor: subj?.color || '#3b82f6' }}
+              {isJointAssign && (
+                <div className="pt-2 border-t border-purple-200/80 dark:border-purple-800/40 space-y-2 animate-in fade-in duration-100">
+                  <div className="text-[11px] font-bold text-purple-800 dark:text-purple-300">
+                    Válaszd ki a többi osztályt, akikkel együtt van ez az óra:
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {project.classes
+                      .filter((c) => c.id !== activeSlotTarget.classId)
+                      .map((c) => {
+                        const isSelected = selectedJointClassIds.includes(c.id);
+                        return (
+                          <button
+                            key={c.id}
+                            type="button"
+                            onClick={() => {
+                              if (isSelected) {
+                                setSelectedJointClassIds((prev) => prev.filter((id) => id !== c.id));
+                              } else {
+                                setSelectedJointClassIds((prev) => [...prev, c.id]);
+                              }
+                            }}
+                            className={`px-2.5 py-1 rounded-xl text-xs font-bold border transition-all cursor-pointer flex items-center space-x-1.5 ${
+                              isSelected
+                                ? 'bg-purple-600 text-white border-purple-600 shadow-xs'
+                                : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-purple-200 dark:border-slate-700 hover:border-purple-400'
+                            }`}
                           >
-                            {subj?.shortCode}
-                          </div>
-                          <div>
-                            <div className="font-black text-slate-900 text-sm">{subj?.name}</div>
-                            <div className="text-xs text-slate-600 flex items-center space-x-2 mt-0.5">
-                              <span>
-                                {teacher?.name} ({teacher?.shortCode})
-                              </span>
-                              {room && (
-                                <span className="text-[10px] bg-slate-100 px-1 py-0.2 rounded font-mono text-slate-500">
-                                  {room.shortCode}
+                            <span
+                              className="w-2 h-2 rounded-full"
+                              style={{ backgroundColor: c.color }}
+                            />
+                            <span>{c.name}</span>
+                            {isSelected && <span>✓</span>}
+                          </button>
+                        );
+                      })}
+                  </div>
+                  <p className="text-[10px] text-purple-700 dark:text-purple-400 italic">
+                    💡 Az óra egyszerre kerül elhelyezésre az összes kijelölt osztályhoz ({DAYS_HUNGARIAN[activeSlotTarget.day]} {activeSlotTarget.period}. óra). A tanárnál ez 1 tanítási órának számít és nem okoz ütközést!
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Tab 1: Curriculum list */}
+            {assignTab === 'curriculum' && (
+              <div className="space-y-3">
+                <div className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                  Kattints a tantárgyra a hozzárendeléshez:
+                </div>
+
+                <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                  {project.curriculum
+                    .filter((c) => c.classId === activeSlotTarget.classId)
+                    .map((curr) => {
+                      const subj = project.subjects.find((s) => s.id === curr.subjectId);
+                      const teacher = project.teachers.find((t) => t.id === curr.teacherId);
+                      const room = project.rooms.find((r) => r.id === curr.roomId);
+
+                      const progress = progressList.find((p) => p.curriculumId === curr.id);
+                      const assigned = progress?.assignedHours || 0;
+                      const required = curr.weeklyHours;
+
+                      const teacherStatus = getTeacherStatus(
+                        curr.teacherId,
+                        activeSlotTarget.day,
+                        activeSlotTarget.period
+                      );
+
+                      return (
+                        <button
+                          key={curr.id}
+                          onClick={() =>
+                            handleAssignSlot(
+                              activeSlotTarget.day,
+                              activeSlotTarget.period,
+                              activeSlotTarget.classId,
+                              curr.subjectId,
+                              curr.teacherId,
+                              curr.roomId,
+                              undefined,
+                              isJointAssign,
+                              selectedJointClassIds
+                            )
+                          }
+                          className={`w-full text-left p-3 rounded-2xl border transition-all flex items-center justify-between cursor-pointer ${
+                            !teacherStatus.available
+                              ? 'bg-amber-50/70 dark:bg-amber-950/30 border-amber-300 dark:border-amber-700 hover:border-amber-500'
+                              : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-indigo-500 hover:bg-indigo-50/40 shadow-xs'
+                          }`}
+                        >
+                          <div className="flex items-center space-x-3">
+                            <div
+                              className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-black text-xs shadow-xs"
+                              style={{ backgroundColor: subj?.color || '#3b82f6' }}
+                            >
+                              {subj?.shortCode}
+                            </div>
+                            <div>
+                              <div className="font-black text-slate-900 dark:text-white text-sm">
+                                {subj?.name}
+                              </div>
+                              <div className="text-xs text-slate-600 dark:text-slate-400 flex items-center space-x-2 mt-0.5">
+                                <span>
+                                  {teacher?.name} ({teacher?.shortCode})
                                 </span>
-                              )}
-                              {!teacherStatus.available && (
-                                <span className="text-[11px] font-bold text-amber-700 bg-amber-100 px-1.5 py-0.2 rounded">
-                                  ⚠️ {teacherStatus.message}
-                                </span>
-                              )}
+                                {room && (
+                                   <span className="text-[10px] bg-slate-100 dark:bg-slate-700 px-1 py-0.2 rounded font-mono text-slate-500 dark:text-slate-300">
+                                     {room.shortCode}
+                                   </span>
+                                )}
+                                {!teacherStatus.available && (
+                                  <span className="text-[11px] font-bold text-amber-700 bg-amber-100 dark:bg-amber-950/80 px-1.5 py-0.2 rounded">
+                                    ⚠️ {teacherStatus.message}
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           </div>
-                        </div>
 
-                        <div className="text-right">
-                          <div className="text-xs font-bold text-indigo-600">
-                            {assigned} / {required} óra
+                          <div className="text-right">
+                            <div className="text-xs font-bold text-indigo-600 dark:text-indigo-400">
+                              {assigned} / {required} óra
+                            </div>
+                            <div className="text-[10px] text-slate-400 mt-0.5">
+                              {required - assigned > 0
+                                ? `${required - assigned} óra hiányzik`
+                                : 'Kész'}
+                            </div>
                           </div>
-                          <div className="text-[10px] text-slate-400 mt-0.5">
-                            {required - assigned > 0
-                              ? `${required - assigned} óra hiányzik`
-                              : 'Kész'}
-                          </div>
-                        </div>
-                      </button>
-                    );
-                  })}
+                        </button>
+                      );
+                    })}
+                </div>
               </div>
-            </div>
+            )}
+
+            {/* Tab 2: Custom / Direct Assignment */}
+            {assignTab === 'custom' && (
+              <div className="space-y-3.5 animate-in fade-in duration-100">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Tantárgy:
+                  </label>
+                  <select
+                    value={customSubjectId}
+                    onChange={(e) => setCustomSubjectId(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  >
+                    {project.subjects.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name} ({s.shortCode})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Oktató Tanár:
+                  </label>
+                  <select
+                    value={customTeacherId}
+                    onChange={(e) => setCustomTeacherId(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  >
+                    {project.teachers.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.name} ({t.shortCode})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Terem (opcionális):
+                  </label>
+                  <select
+                    value={customRoomId}
+                    onChange={(e) => setCustomRoomId(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  >
+                    <option value="">(Nincs terem hozzárendelve)</option>
+                    {project.rooms.map((r) => (
+                      <option key={r.id} value={r.id}>
+                        {r.name} ({r.shortCode})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!customSubjectId || !customTeacherId) return;
+                    handleAssignSlot(
+                      activeSlotTarget.day,
+                      activeSlotTarget.period,
+                      activeSlotTarget.classId,
+                      customSubjectId,
+                      customTeacherId,
+                      customRoomId || undefined,
+                      undefined,
+                      isJointAssign,
+                      selectedJointClassIds
+                    );
+                  }}
+                  className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs rounded-xl shadow-md shadow-indigo-600/30 transition-all cursor-pointer flex items-center justify-center space-x-2"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>
+                    {isJointAssign && selectedJointClassIds.length > 0
+                      ? `Összevont Óra Elhelyezése (${1 + selectedJointClassIds.length} osztály)`
+                      : 'Óra Elhelyezése az Órarendbe'}
+                  </span>
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
